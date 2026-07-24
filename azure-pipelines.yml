@@ -34,7 +34,7 @@ pool:
 
 variables:
   buildConfiguration: 'Release'
-  dotnetVersion: '10.x'
+  dotnetVersion: '8.x'
   # -- Update these for your environment --
   ec2Host: 'REPLACE_WITH_EC2_PUBLIC_IP_OR_DNS'
   ec2User: 'ubuntu'
