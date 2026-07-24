@@ -75,42 +75,42 @@ stages:
             displayName: 'Publish build artifact'
             artifact: cms-publish
 
-  - stage: Deploy
-    displayName: 'Deploy to EC2 (production)'
-    dependsOn: Build
-    condition: false
-    jobs:
-      - deployment: DeployToEc2
-        displayName: 'Deploy over SSH'
-        # Ties this stage to the "production" environment's approval gate,
-        # configured once in Pipelines > Environments (see header comment).
-        environment: 'production'
-        strategy:
-          runOnce:
-            deploy:
-              steps:
-                - task: DownloadSecureFile@1
-                  name: sshKey
-                  displayName: 'Download SSH deploy key'
-                  inputs:
-                    secureFile: $(sshKeySecureFile)
+  # - stage: Deploy
+  #   displayName: 'Deploy to EC2 (production)'
+  #   dependsOn: Build
+  #   condition: false
+  #   jobs:
+  #     - deployment: DeployToEc2
+  #       displayName: 'Deploy over SSH'
+  #       # Ties this stage to the "production" environment's approval gate,
+  #       # configured once in Pipelines > Environments (see header comment).
+  #       environment: 'production'
+  #       strategy:
+  #         runOnce:
+  #           deploy:
+  #             steps:
+  #               - task: DownloadSecureFile@1
+  #                 name: sshKey
+  #                 displayName: 'Download SSH deploy key'
+  #                 inputs:
+  #                   secureFile: $(sshKeySecureFile)
 
-                - bash: |
-                    set -euo pipefail
+  #               - bash: |
+  #                   set -euo pipefail
 
-                    KEY_PATH="$(sshKey.secureFilePath)"
-                    chmod 600 "$KEY_PATH"
+  #                   KEY_PATH="$(sshKey.secureFilePath)"
+  #                   chmod 600 "$KEY_PATH"
 
-                    SSH_OPTS="-i $KEY_PATH -o StrictHostKeyChecking=no"
-                    ARTIFACT_DIR="$(Pipeline.Workspace)/webapp-publish"
-                    REMOTE="$(ec2User)@$(ec2Host)"
+  #                   SSH_OPTS="-i $KEY_PATH -o StrictHostKeyChecking=no"
+  #                   ARTIFACT_DIR="$(Pipeline.Workspace)/webapp-publish"
+  #                   REMOTE="$(ec2User)@$(ec2Host)"
 
-                    echo "Copying published output to $REMOTE:$(deployPath) ..."
-                    ssh $SSH_OPTS "$REMOTE" "sudo mkdir -p $(deployPath) && sudo chown \$(whoami) $(deployPath)"
-                    scp $SSH_OPTS -r "$ARTIFACT_DIR"/* "$REMOTE:$(deployPath)/"
+  #                   echo "Copying published output to $REMOTE:$(deployPath) ..."
+  #                   ssh $SSH_OPTS "$REMOTE" "sudo mkdir -p $(deployPath) && sudo chown \$(whoami) $(deployPath)"
+  #                   scp $SSH_OPTS -r "$ARTIFACT_DIR"/* "$REMOTE:$(deployPath)/"
 
-                    echo "Restarting the webapp systemd service ..."
-                    ssh $SSH_OPTS "$REMOTE" "sudo systemctl restart webapp && sleep 2 && sudo systemctl is-active webapp"
+  #                   echo "Restarting the webapp systemd service ..."
+  #                   ssh $SSH_OPTS "$REMOTE" "sudo systemctl restart webapp && sleep 2 && sudo systemctl is-active webapp"
 
-                    echo "Deployed successfully."
-                  displayName: 'scp artifact + restart systemd service'
+  #                   echo "Deployed successfully."
+  #                 displayName: 'scp artifact + restart systemd service'
