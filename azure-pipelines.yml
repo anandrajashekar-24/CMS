@@ -78,7 +78,7 @@ stages:
   - stage: Deploy
     displayName: 'Deploy to EC2 (production)'
     dependsOn: Build
-    condition: false()
+    condition: false
     jobs:
       - deployment: DeployToEc2
         displayName: 'Deploy over SSH'
