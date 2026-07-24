@@ -7,7 +7,6 @@
 #   2. Pipelines > Environments: create an environment named "production"
 #      and add an approval check on it, so deploys pause for sign-off.
 #   3. Update the variables below (EC2 host, SSH user, deploy path).
-#   This was created with the Azure DevOps "Deploy to Linux on Azure" template, then
 
 trigger:
   branches:
