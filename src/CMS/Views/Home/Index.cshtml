@@ -1,0 +1,93 @@
+@{
+    ViewData["Title"] = "Home";
+}
+
+<section class="hero">
+    <h1>Welcome to CMS 👋</h1>
+    <p>A minimal starting point. Three buttons below show three interaction patterns you'll build on.</p>
+</section>
+
+<section class="button-grid">
+
+    <div class="card">
+        <h2>1. Client-side only</h2>
+        <p>No server round-trip &mdash; pure JavaScript.</p>
+        <button id="btn-greet" class="btn">Say hello</button>
+        <p id="greet-output" class="output"></p>
+    </div>
+
+    <div class="card">
+        <h2>2. Client-side state</h2>
+        <p>A simple counter kept in the browser.</p>
+        <button id="btn-counter" class="btn">Clicked <span id="counter-value">0</span> times</button>
+    </div>
+
+    <div class="card">
+        <h2>3. Calls the server (fetch)</h2>
+        <p>
+            Hits an MVC controller action now.
+            <strong>This is the exact pattern you'll reuse to call the REST API later</strong> &mdash;
+            just swap the URL for the API's endpoint.
+        </p>
+        <button id="btn-ping" class="btn btn-primary">Ping server</button>
+        <p id="ping-output" class="output"></p>
+    </div>
+
+    <div class="card">
+        <h2>4. Show node IP</h2>
+        <p>Fetches both the local node IP and the request-facing IP.</p>
+        <button id="btn-node-ip" class="btn">Show node IP</button>
+        <p id="node-ip-output" class="output"></p>
+    </div>
+
+    <div class="card">
+        <h2>5. Products</h2>
+        <p>Navigates to a new page with Projects, WIP, Materials, and Reports sections.</p>
+        <a class="btn btn-primary" asp-controller="Products" asp-action="Index">Products</a>
+    </div>
+
+</section>
+
+@section Scripts {
+    <script>
+        // Wire up the three buttons. Kept inline here for a quick start;
+        // as the app grows, move this into wwwroot/js/site.js.
+
+        document.getElementById('btn-greet').addEventListener('click', () => {
+            document.getElementById('greet-output').textContent = 'Hello from the browser!';
+        });
+
+        let count = 0;
+        document.getElementById('btn-counter').addEventListener('click', () => {
+            count++;
+            document.getElementById('counter-value').textContent = count;
+        });
+
+        document.getElementById('btn-ping').addEventListener('click', async () => {
+            const output = document.getElementById('ping-output');
+            output.textContent = 'Calling server...';
+            try {
+                // Today: same-origin MVC action.
+                // Later: point this at your REST API base URL instead, e.g.
+                //   fetch('https://api.yourapp.com/health', { method: 'GET' })
+                const response = await fetch('/Home/Ping', { method: 'POST' });
+                const data = await response.json();
+                output.textContent = `${data.message} (at ${data.timestampUtc})`;
+            } catch (err) {
+                output.textContent = 'Request failed: ' + err;
+            }
+        });
+
+        document.getElementById('btn-node-ip').addEventListener('click', async () => {
+            const output = document.getElementById('node-ip-output');
+            output.textContent = 'Looking up node IP...';
+            try {
+                const response = await fetch('/Home/NodeIp', { method: 'GET' });
+                const data = await response.json();
+                output.textContent = `Local IP: ${data.localIp} | Public IP: ${data.publicIp}`;
+            } catch (err) {
+                output.textContent = 'Request failed: ' + err;
+            }
+        });
+    </script>
+}

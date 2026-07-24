@@ -1,0 +1,117 @@
+# Azure DevOps pipeline: build the ASP.NET Core app, publish it as an
+# artifact, then deploy to the Ubuntu EC2 instance over SSH.
+#
+# One-time setup required in Azure DevOps before this will run:
+#   1. Pipelines > Library > Secure files: upload your EC2 SSH private key
+#      (e.g. "webapp-deploy-key.pem") and grant this pipeline access to it.
+#   2. Pipelines > Environments: create an environment named "production"
+#      and add an approval check on it, so deploys pause for sign-off.
+#   3. Update the variables below (EC2 host, SSH user, deploy path).
+#   This was created with the Azure DevOps "Deploy to Linux on Azure" template, then
+
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  buildConfiguration: 'Release'
+  dotnetVersion: '10.x'
+  # -- Update these for your environment --
+  ec2Host: 'REPLACE_WITH_EC2_PUBLIC_IP_OR_DNS'
+  ec2User: 'ubuntu'
+  deployPath: '/var/www/webapp'
+  sshKeySecureFile: 'webapp-deploy-key.pem'
+
+stages:
+
+  - stage: Build
+    displayName: 'Build and publish'
+    jobs:
+      - job: Build
+        displayName: 'Build, test, publish artifact'
+        steps:
+          - task: UseDotNet@2
+            displayName: 'Install .NET SDK'
+            inputs:
+              version: $(dotnetVersion)
+
+          - task: DotNetCoreCLI@2
+            displayName: 'dotnet restore'
+            inputs:
+              command: 'restore'
+              projects: '**/CMS.csproj'
+
+          - task: DotNetCoreCLI@2
+            displayName: 'dotnet build'
+            inputs:
+              command: 'build'
+              projects: '**/CMS.csproj'
+              arguments: '--configuration $(buildConfiguration) --no-restore'
+
+          # No test project yet - add one under src/CMS.Tests and this
+          # step will pick it up automatically once it exists.
+          - task: DotNetCoreCLI@2
+            displayName: 'dotnet test'
+            condition: succeededOrFailed()
+            continueOnError: true
+            inputs:
+              command: 'test'
+              projects: '**/*Tests.csproj'
+              arguments: '--configuration $(buildConfiguration) --no-build'
+
+          - task: DotNetCoreCLI@2
+            displayName: 'dotnet publish'
+            inputs:
+              command: 'publish'
+              publishWebProjects: false
+              projects: '**/CMS.csproj'
+              arguments: '--configuration $(buildConfiguration) --no-build --output $(Build.ArtifactStagingDirectory)/publish'
+              zipAfterPublish: false
+
+          - publish: $(Build.ArtifactStagingDirectory)/publish
+            displayName: 'Publish build artifact'
+            artifact: cms-publish
+
+  - stage: Deploy
+    displayName: 'Deploy to EC2 (production)'
+    dependsOn: Build
+    condition: succeeded()
+    jobs:
+      - deployment: DeployToEc2
+        displayName: 'Deploy over SSH'
+        # Ties this stage to the "production" environment's approval gate,
+        # configured once in Pipelines > Environments (see header comment).
+        environment: 'production'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: DownloadSecureFile@1
+                  name: sshKey
+                  displayName: 'Download SSH deploy key'
+                  inputs:
+                    secureFile: $(sshKeySecureFile)
+
+                - bash: |
+                    set -euo pipefail
+
+                    KEY_PATH="$(sshKey.secureFilePath)"
+                    chmod 600 "$KEY_PATH"
+
+                    SSH_OPTS="-i $KEY_PATH -o StrictHostKeyChecking=no"
+                    ARTIFACT_DIR="$(Pipeline.Workspace)/webapp-publish"
+                    REMOTE="$(ec2User)@$(ec2Host)"
+
+                    echo "Copying published output to $REMOTE:$(deployPath) ..."
+                    ssh $SSH_OPTS "$REMOTE" "sudo mkdir -p $(deployPath) && sudo chown \$(whoami) $(deployPath)"
+                    scp $SSH_OPTS -r "$ARTIFACT_DIR"/* "$REMOTE:$(deployPath)/"
+
+                    echo "Restarting the webapp systemd service ..."
+                    ssh $SSH_OPTS "$REMOTE" "sudo systemctl restart webapp && sleep 2 && sudo systemctl is-active webapp"
+
+                    echo "Deployed successfully."
+                  displayName: 'scp artifact + restart systemd service'

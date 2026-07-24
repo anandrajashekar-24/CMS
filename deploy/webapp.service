@@ -1,0 +1,40 @@
+# systemd unit for the CMS Kestrel process.
+#
+# Install on the EC2 Ubuntu instance:
+#   sudo cp webapp.service /etc/systemd/system/cms.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable cms
+#   sudo systemctl start cms
+#
+# Check status / logs:
+#   sudo systemctl status cms
+#   sudo journalctl -u cms -f
+
+[Unit]
+Description=CMS (.NET 10 ASP.NET Core MVC)
+After=network.target
+
+[Service]
+# Path where the published app is deployed (matches the pipeline's deploy step).
+WorkingDirectory=/var/www/webapp
+ExecStart=/usr/bin/dotnet /var/www/webapp/CMS.dll
+
+# Restart automatically if the process crashes.
+Restart=always
+RestartSec=5
+
+# Run as a dedicated, unprivileged user rather than root.
+User=www-data
+Group=www-data
+
+# Kestrel listens on localhost only - Nginx is the public-facing edge.
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://127.0.0.1:5000
+Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
+
+# Send stdout/stderr to the systemd journal (view with journalctl -u cms).
+SyslogIdentifier=cms
+KillSignal=SIGINT
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,58 @@
+{
+  "Version": 1,
+  "Hash": "fTmLVfZhoP7sP6Y8jukqJfmQI2NHs+0qNPOfaPhg4k4=",
+  "Source": "CMS",
+  "BasePath": "_content/CMS",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [
+    {
+      "Name": "CMS/wwwroot",
+      "Source": "CMS",
+      "ContentRoot": "/Users/AnandR/AAR/CMS/src/CMS/wwwroot/",
+      "BasePath": "_content/CMS",
+      "Pattern": "**"
+    }
+  ],
+  "Assets": [
+    {
+      "Identity": "/Users/AnandR/AAR/CMS/src/CMS/wwwroot/css/site.css",
+      "SourceId": "CMS",
+      "SourceType": "Discovered",
+      "ContentRoot": "/Users/AnandR/AAR/CMS/src/CMS/wwwroot/",
+      "BasePath": "_content/CMS",
+      "RelativePath": "css/site.css",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot/css/site.css"
+    },
+    {
+      "Identity": "/Users/AnandR/AAR/CMS/src/CMS/wwwroot/js/site.js",
+      "SourceId": "CMS",
+      "SourceType": "Discovered",
+      "ContentRoot": "/Users/AnandR/AAR/CMS/src/CMS/wwwroot/",
+      "BasePath": "_content/CMS",
+      "RelativePath": "js/site.js",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot/js/site.js"
+    }
+  ]
+}

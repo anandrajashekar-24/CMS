@@ -1,0 +1,32 @@
+@{
+    ViewData["Title"] = "Products";
+}
+
+<section class="hero">
+    <h1>Products</h1>
+    <p>Pick a section below.</p>
+</section>
+
+<section class="button-grid">
+
+    <div class="card">
+        <h2>Projects</h2>
+        <a class="btn" asp-controller="Products" asp-action="Projects">View Projects</a>
+    </div>
+
+    <div class="card">
+        <h2>WIP</h2>
+        <a class="btn" asp-controller="Products" asp-action="Wip">View WIP</a>
+    </div>
+
+    <div class="card">
+        <h2>Materials</h2>
+        <a class="btn" asp-controller="Products" asp-action="Materials">View Materials</a>
+    </div>
+
+    <div class="card">
+        <h2>Reports</h2>
+        <a class="btn" asp-controller="Products" asp-action="Reports">View Reports</a>
+    </div>
+
+</section>
