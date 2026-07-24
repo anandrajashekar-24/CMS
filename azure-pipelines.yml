@@ -1,12 +1,28 @@
 # Azure DevOps pipeline: build the ASP.NET Core app, publish it as an
-# artifact, then deploy to the Ubuntu EC2 instance over SSH.
+# artifact, then deploy to the Ubuntu EC2 instance. Both stages below are
+# disabled (condition: false) until deploy is ready to turn on - pick one:
 #
-# One-time setup required in Azure DevOps before this will run:
-#   1. Pipelines > Library > Secure files: upload your EC2 SSH private key
-#      (e.g. "webapp-deploy-key.pem") and grant this pipeline access to it.
-#   2. Pipelines > Environments: create an environment named "production"
-#      and add an approval check on it, so deploys pause for sign-off.
-#   3. Update the variables below (EC2 host, SSH user, deploy path).
+# Option A - "Deploy" stage: hosted agent copies files over ssh/scp.
+#   One-time setup:
+#     1. Pipelines > Library > Secure files: upload your EC2 SSH private
+#        key (e.g. "CMS-deploy-key.pem") and grant this pipeline access.
+#     2. Pipelines > Environments: create an environment named
+#        "production" and add an approval check on it.
+#     3. Update the variables below (EC2 host, SSH user, deploy path).
+#
+# Option B - "DeployToEnvironment" stage: EC2 box is registered as a
+# Virtual Machine resource inside the "production" Environment, and the
+# Azure Pipelines agent runs directly on the box (no SSH key needed).
+#   One-time setup:
+#     1. Pipelines > Environments > production > Add resource > Virtual
+#        Machines. Give it a name (e.g. "CMS-ec2") and, optionally, a
+#        tag (e.g. "CMS"). This shows a registration script + token.
+#     2. SSH into the EC2 instance once by hand and run that registration
+#        script - it installs the agent as a systemd service and
+#        registers it against the "production" environment.
+#     3. Set resourceName in that stage to match the name from step 1.
+#
+# Only enable one of the two stages at a time (they deploy the same box).
 
 trigger:
   branches:
@@ -22,8 +38,8 @@ variables:
   # -- Update these for your environment --
   ec2Host: 'REPLACE_WITH_EC2_PUBLIC_IP_OR_DNS'
   ec2User: 'ubuntu'
-  deployPath: '/var/www/webapp'
-  sshKeySecureFile: 'webapp-deploy-key.pem'
+  deployPath: '/var/www/CMS'
+  sshKeySecureFile: 'CMS-deploy-key.pem'
 
 stages:
 
@@ -75,6 +91,8 @@ stages:
             displayName: 'Publish build artifact'
             artifact: cms-publish
 
+  #========================================================================
+  # Option A - deploy via SSH/scp from hosted agent
   # - stage: Deploy
   #   displayName: 'Deploy to EC2 (production)'
   #   dependsOn: Build
@@ -102,15 +120,52 @@ stages:
   #                   chmod 600 "$KEY_PATH"
 
   #                   SSH_OPTS="-i $KEY_PATH -o StrictHostKeyChecking=no"
-  #                   ARTIFACT_DIR="$(Pipeline.Workspace)/webapp-publish"
+  #                   ARTIFACT_DIR="$(Pipeline.Workspace)/CMS-publish"
   #                   REMOTE="$(ec2User)@$(ec2Host)"
 
   #                   echo "Copying published output to $REMOTE:$(deployPath) ..."
   #                   ssh $SSH_OPTS "$REMOTE" "sudo mkdir -p $(deployPath) && sudo chown \$(whoami) $(deployPath)"
   #                   scp $SSH_OPTS -r "$ARTIFACT_DIR"/* "$REMOTE:$(deployPath)/"
 
-  #                   echo "Restarting the webapp systemd service ..."
-  #                   ssh $SSH_OPTS "$REMOTE" "sudo systemctl restart webapp && sleep 2 && sudo systemctl is-active webapp"
+  #                   echo "Restarting the CMS systemd service ..."
+  #                   ssh $SSH_OPTS "$REMOTE" "sudo systemctl restart CMS && sleep 2 && sudo systemctl is-active CMS"
 
   #                   echo "Deployed successfully."
   #                 displayName: 'scp artifact + restart systemd service'
+
+  #========================================================================
+  # Option B - deploy via Environment VM resource (agent runs on EC2 box)
+  # - stage: DeployToEnvironment
+  #   displayName: 'Deploy to EC2 (production) via Environment VM resource'
+  #   dependsOn: Build
+  #   condition: false
+  #   jobs:
+  #     - deployment: DeployToEc2Resource
+  #       displayName: 'Deploy on registered EC2 VM resource'
+  #       # Runs on the agent installed on the EC2 box itself (see header
+  #       # comment, Option B, for one-time registration steps).
+  #       environment:
+  #         name: production
+  #         resourceName: webserver-CMS
+  #       strategy:
+  #         runOnce:
+  #           deploy:
+  #             steps:
+  #               - download: current
+  #                 artifact: cms-publish
+  #                 displayName: 'Download build artifact'
+
+  #               - bash: |
+  #                   set -euo pipefail
+  #                   sudo mkdir -p $(deployPath)
+  #                   sudo rm -rf "$(deployPath)"/*
+  #                   sudo cp -r "$(Pipeline.Workspace)/cms-publish/"* "$(deployPath)/"
+  #                   sudo chown -R $(ec2User):$(ec2User) "$(deployPath)"
+  #                 displayName: 'Copy published files to deploy path'
+
+  #               - bash: |
+  #                   set -euo pipefail
+  #                   sudo systemctl restart CMS
+  #                   sleep 2
+  #                   sudo systemctl is-active CMS
+  #                 displayName: 'Restart CMS systemd service'
