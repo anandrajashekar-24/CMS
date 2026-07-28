@@ -37,8 +37,8 @@ variables:
   dotnetVersion: '8.x'
   # -- Update these for your environment --
   ec2Host: 'REPLACE_WITH_EC2_PUBLIC_IP_OR_DNS'
-  ec2User: 'ubuntu'
-  deployPath: '/var/www/CMS'
+  ec2User: 'ec2-user'
+  deployPath: '/var/app/current'
   sshKeySecureFile: 'CMS-deploy-key.pem'
 
 stages:
@@ -86,8 +86,22 @@ stages:
               projects: '**/CMS.csproj'
               arguments: '--configuration $(buildConfiguration) --no-build --output $(Build.ArtifactStagingDirectory)/publish'
               zipAfterPublish: false
+          # Inject Procfile into publish directory
+          - script: |
+              echo "web: dotnet CMS.dll" > $(Build.ArtifactStagingDirecroty)/publish/Procfile
+            displayName: 'Create Beanstalk Procfile'
 
-          - publish: $(Build.ArtifactStagingDirectory)/publish
+          #zip content of publish directoty (flat structure)
+          - task: ArchiveFiles@2
+            displayName: 'zip application pakage'
+            inputs:
+              rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/publish'
+              includeRootFolder: false  # CRITICAL: Ensures CMS.runtimeconfig.json & Procfile are at zip root
+              archiveType: 'zip'
+              archiveFile: '$(Build.ArtifactStagingDirectory)/CMS_deploy.zip'
+              replaceExistingArchive: true
+
+          - publish: $(Build.ArtifactStagingDirectory)/CMS_deploy.zip
             displayName: 'Publish build artifact'
             artifact: cms-publish
 
