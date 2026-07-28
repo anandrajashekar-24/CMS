@@ -5,6 +5,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Add MVC services (controllers + Razor views).
 builder.Services.AddControllersWithViews();
 
+builder.Services.AddHealthChecks();
+
 // Trust the X-Forwarded-For / X-Forwarded-Proto headers set by the Nginx
 // reverse proxy in front of Kestrel, so the app sees the real client scheme/IP.
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
@@ -37,6 +39,8 @@ app.UseForwardedHeaders();
 app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthorization();
+
+app.MapHealthChecks("/health");
 
 app.MapControllerRoute(
     name: "default",
