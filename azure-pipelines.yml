@@ -86,6 +86,7 @@ stages:
               projects: '**/CMS.csproj'
               arguments: '--configuration $(buildConfiguration) --no-build --output $(Build.ArtifactStagingDirectory)/app'
               zipAfterPublish: false
+              modifyOutputPath: false
           # Inject Procfile into publish directory
           - script: |
               echo "web: dotnet CMS.dll" > $(Build.ArtifactStagingDirectory)/app/Procfile
