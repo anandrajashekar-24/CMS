@@ -88,7 +88,7 @@ stages:
               zipAfterPublish: false
           # Inject Procfile into publish directory
           - script: |
-              echo "web: dotnet CMS.dll" > $(Build.ArtifactStagingDirecroty)/publish/Procfile
+              echo "web: dotnet CMS.dll" > $(Build.ArtifactStagingDirectory)/publish/Procfile
             displayName: 'Create Beanstalk Procfile'
 
           #zip content of publish directoty (flat structure)
