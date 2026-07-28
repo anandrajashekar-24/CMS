@@ -84,22 +84,25 @@ stages:
               command: 'publish'
               publishWebProjects: false
               projects: '**/CMS.csproj'
-              arguments: '--configuration $(buildConfiguration) --no-build --output $(Build.ArtifactStagingDirectory)/publish'
+              arguments: '--configuration $(buildConfiguration) --no-build --output $(Build.ArtifactStagingDirectory)/app'
               zipAfterPublish: false
           # Inject Procfile into publish directory
           - script: |
-              echo "web: dotnet CMS.dll" > $(Build.ArtifactStagingDirectory)/publish/Procfile
+              echo "web: dotnet CMS.dll" > $(Build.ArtifactStagingDirectory)/app/Procfile
             displayName: 'Create Beanstalk Procfile'
 
           #zip content of publish directoty (flat structure)
           - task: ArchiveFiles@2
             displayName: 'zip application pakage'
             inputs:
-              rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/publish'
+              rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/app'
               includeRootFolder: false  # CRITICAL: Ensures CMS.runtimeconfig.json & Procfile are at zip root
               archiveType: 'zip'
               archiveFile: '$(Build.ArtifactStagingDirectory)/CMS_deploy.zip'
               replaceExistingArchive: true
+          - script: |
+              unzip -l $(Build.ArtifactStagingDirectory)/CMS_deploy.zip
+            displayName: 'Debug: Inspect Zip File Structure'
 
           - publish: $(Build.ArtifactStagingDirectory)/CMS_deploy.zip
             displayName: 'Publish build artifact'
