@@ -43,13 +43,9 @@ pool:
 variables:
   buildConfiguration: 'Release'
   dotnetVersion: '8.x'
-  # -- Update these for your environment --
-  ec2Host: 'REPLACE_WITH_EC2_PUBLIC_IP_OR_DNS'
-  ec2User: 'ec2-user'
   deployPath: '/var/app/current'
   sshKeySecureFile: 'CMS-deploy-key.pem'
   awsServiceConnection: 'aws-oidc-connection'
-  tempvar: 'dummy'
   awsRegion: 'us-east-1'
   s3BucketName: 'aar-tempbucket'
   s3KeyPrefix: 'CMS'
@@ -62,15 +58,7 @@ stages:
       - job: Build
         displayName: 'Build, test, publish artifact'
         steps:
-          - task: AWSShellScript@1
-            displayName: 'Test OIDC Authentication'
-            inputs:
-              awsCredentials: 'aws-oidc-connection' # Your exact ADO connection name
-              regionName: 'us-east-1'
-              scriptType: 'inline'
-              inlineScript: |
-                echo "=== Testing AWS STS Identity ==="
-                aws sts get-caller-identity
+
           - task: UseDotNet@2
             displayName: 'Install .NET SDK'
             inputs:
@@ -123,6 +111,7 @@ stages:
               archiveType: 'zip'
               archiveFile: '$(Build.ArtifactStagingDirectory)/CMS_deploy.zip'
               replaceExistingArchive: true
+
           - script: |
               unzip -l $(Build.ArtifactStagingDirectory)/CMS_deploy.zip
             displayName: 'Debug: Inspect Zip File Structure'
@@ -144,92 +133,29 @@ stages:
           - script: sleep 5
             displayName: 'Sleep 5s to allow S3 eventual consistency'
 
-          - task: BeanstalkDeployApplication@1
-            displayName: 'Update Elastic Beanstalk application version'
-            inputs:
-              awsCredentials: '$(awsServiceConnection)'
-              regionName: '$(awsRegion)'
-              applicationName: 'CMS-1'
-              environmentName: 'CMS-2-env'
-              applicationType: 's3'
-              deploymentBundleBucket: '$(s3BucketName)'
-              deploymentBundleKey: '$(s3KeyPrefix)/CMS_deploy.zip'
+  - stage: DeployToBeanstalk
+    displayName: 'Deploy to Elastic Beanstalk'
+    dependsOn: Build
+    condition: succeeded()
+    jobs:
+      - deployment: DeployToBeanstalk
+        displayName: 'Deploy application version'
+        environment: 'production'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: cms-publish
+                  displayName: 'Download build artifact'
 
-  #========================================================================
-  # Option A - deploy via SSH/scp from hosted agent
-  # - stage: Deploy
-  #   displayName: 'Deploy to EC2 (production)'
-  #   dependsOn: Build
-  #   condition: false
-  #   jobs:
-  #     - deployment: DeployToEc2
-  #       displayName: 'Deploy over SSH'
-  #       # Ties this stage to the "production" environment's approval gate,
-  #       # configured once in Pipelines > Environments (see header comment).
-  #       environment: 'production'
-  #       strategy:
-  #         runOnce:
-  #           deploy:
-  #             steps:
-  #               - task: DownloadSecureFile@1
-  #                 name: sshKey
-  #                 displayName: 'Download SSH deploy key'
-  #                 inputs:
-  #                   secureFile: $(sshKeySecureFile)
-
-  #               - bash: |
-  #                   set -euo pipefail
-
-  #                   KEY_PATH="$(sshKey.secureFilePath)"
-  #                   chmod 600 "$KEY_PATH"
-
-  #                   SSH_OPTS="-i $KEY_PATH -o StrictHostKeyChecking=no"
-  #                   ARTIFACT_DIR="$(Pipeline.Workspace)/CMS-publish"
-  #                   REMOTE="$(ec2User)@$(ec2Host)"
-
-  #                   echo "Copying published output to $REMOTE:$(deployPath) ..."
-  #                   ssh $SSH_OPTS "$REMOTE" "sudo mkdir -p $(deployPath) && sudo chown \$(whoami) $(deployPath)"
-  #                   scp $SSH_OPTS -r "$ARTIFACT_DIR"/* "$REMOTE:$(deployPath)/"
-
-  #                   echo "Restarting the CMS systemd service ..."
-  #                   ssh $SSH_OPTS "$REMOTE" "sudo systemctl restart CMS && sleep 2 && sudo systemctl is-active CMS"
-
-  #                   echo "Deployed successfully."
-  #                 displayName: 'scp artifact + restart systemd service'
-
-  #========================================================================
-  # Option B - deploy via Environment VM resource (agent runs on EC2 box)
-  # - stage: DeployToEnvironment
-  #   displayName: 'Deploy to EC2 (production) via Environment VM resource'
-  #   dependsOn: Build
-  #   condition: false
-  #   jobs:
-  #     - deployment: DeployToEc2Resource
-  #       displayName: 'Deploy on registered EC2 VM resource'
-  #       # Runs on the agent installed on the EC2 box itself (see header
-  #       # comment, Option B, for one-time registration steps).
-  #       environment:
-  #         name: production
-  #         resourceName: webserver-CMS
-  #       strategy:
-  #         runOnce:
-  #           deploy:
-  #             steps:
-  #               - download: current
-  #                 artifact: cms-publish
-  #                 displayName: 'Download build artifact'
-
-  #               - bash: |
-  #                   set -euo pipefail
-  #                   sudo mkdir -p $(deployPath)
-  #                   sudo rm -rf "$(deployPath)"/*
-  #                   sudo cp -r "$(Pipeline.Workspace)/cms-publish/"* "$(deployPath)/"
-  #                   sudo chown -R $(ec2User):$(ec2User) "$(deployPath)"
-  #                 displayName: 'Copy published files to deploy path'
-
-  #               - bash: |
-  #                   set -euo pipefail
-  #                   sudo systemctl restart CMS
-  #                   sleep 2
-  #                   sudo systemctl is-active CMS
-  #                 displayName: 'Restart CMS systemd service'
+                - task: BeanstalkDeployApplication@1
+                  displayName: 'Update Elastic Beanstalk application version'
+                  inputs:
+                    awsCredentials: '$(awsServiceConnection)'
+                    regionName: '$(awsRegion)'
+                    applicationName: 'CMS-1'
+                    environmentName: 'CMS-2-env'
+                    applicationType: 's3'
+                    deploymentBundleBucket: '$(s3BucketName)'
+                    deploymentBundleKey: '$(s3KeyPrefix)/CMS_deploy.zip'
