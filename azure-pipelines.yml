@@ -23,6 +23,14 @@
 #     3. Set resourceName in that stage to match the name from step 1.
 #
 # Only enable one of the two stages at a time (they deploy the same box).
+#
+# S3 upload (Build stage): after publishing the artifact, the zip is also
+# copied to an S3 bucket via the AWS Toolkit for Azure DevOps extension.
+#   One-time setup:
+#     1. Install "AWS Toolkit for Azure DevOps" from the Marketplace.
+#     2. Project Settings > Service connections > New > AWS: create one
+#        (access key/secret or role) and set its name in awsServiceConnection.
+#     3. Update awsRegion below to the bucket's region.
 
 trigger:
   branches:
@@ -40,6 +48,10 @@ variables:
   ec2User: 'ec2-user'
   deployPath: '/var/app/current'
   sshKeySecureFile: 'CMS-deploy-key.pem'
+  awsServiceConnection: 'aws-oidc-connection'
+  awsRegion: 'us-east-1'
+  s3BucketName: 'aar-tempbucket'
+  s3KeyPrefix: 'CMS'
 
 stages:
 
@@ -108,6 +120,16 @@ stages:
           - publish: $(Build.ArtifactStagingDirectory)/CMS_deploy.zip
             displayName: 'Publish build artifact'
             artifact: cms-publish
+
+          - task: S3Upload@1
+            displayName: 'Upload zip to S3'
+            inputs:
+              awsCredentials: '$(awsServiceConnection)'
+              regionName: '$(awsRegion)'
+              bucketName: '$(s3BucketName)'
+              sourceFolder: '$(Build.ArtifactStagingDirectory)'
+              globExpressions: 'CMS_deploy.zip'
+              targetFolder: '$(s3KeyPrefix)'
 
   #========================================================================
   # Option A - deploy via SSH/scp from hosted agent
