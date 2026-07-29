@@ -141,10 +141,8 @@ stages:
               globExpressions: 'CMS_deploy.zip'
               targetFolder: '$(s3KeyPrefix)'
 
-          - task: sleep@1
+          - script: sleep 5
             displayName: 'Sleep 5s to allow S3 eventual consistency'
-            inputs:
-              seconds: 5
 
           - task: BeanstalkDeployApplication@1
             displayName: 'Update Elastic Beanstalk application version'
