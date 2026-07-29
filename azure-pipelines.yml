@@ -152,8 +152,8 @@ stages:
               applicationName: 'CMS-1'
               environmentName: 'CMS-2-env'
               applicationType: 's3'
-              s3Bucket: '$(s3BucketName)'
-              s3Key: '$(s3KeyPrefix)/CMS_deploy.zip'
+              deploymentBundleBucket: '$(s3BucketName)'
+              deploymentBundleKey: '$(s3KeyPrefix)/CMS_deploy.zip'
 
   #========================================================================
   # Option A - deploy via SSH/scp from hosted agent
