@@ -49,6 +49,7 @@ variables:
   deployPath: '/var/app/current'
   sshKeySecureFile: 'CMS-deploy-key.pem'
   awsServiceConnection: 'aws-oidc-connection'
+  tempvar: 'dummy'
   awsRegion: 'us-east-1'
   s3BucketName: 'aar-tempbucket'
   s3KeyPrefix: 'CMS'
@@ -61,6 +62,15 @@ stages:
       - job: Build
         displayName: 'Build, test, publish artifact'
         steps:
+          - task: AWSShellScript@1
+            displayName: 'Test OIDC Authentication'
+            inputs:
+              awsCredentials: 'aws-oidc-connection' # Your exact ADO connection name
+              regionName: 'us-east-1'
+              scriptType: 'inline'
+              inlineScript: |
+                echo "=== Testing AWS STS Identity ==="
+                aws sts get-caller-identity
           - task: UseDotNet@2
             displayName: 'Install .NET SDK'
             inputs:
