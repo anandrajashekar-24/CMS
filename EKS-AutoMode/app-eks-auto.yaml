@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cms-app
+  labels:
+    app: cms
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cms
+  template:
+    metadata:
+      labels:
+        app: cms
+    spec:
+      imagePullSecrets:
+        - name: ecr-registry
+      containers:
+      - name: cms-container
+        image: 298374040157.dkr.ecr.us-east-1.amazonaws.com/myrepos:cms-57 # Or your full ECR image path
+        ports:
+        - containerPort: 5000 # Kestrel port
+        env:
+        - name: ASPNETCORE_URLS
+          value: "http://+:5000"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cms-service
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "external"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "instance"
+spec:
+  #type: NodePort # Allows external access in Minikube
+  type: LoadBalancer # For EKS, use LoadBalancer to expose the service externally
+  selector:
+    app: cms
+  ports:
+    - port: 80         # Port exposed by the Service
+      targetPort: 5000 # Matches Kestrel's container port
