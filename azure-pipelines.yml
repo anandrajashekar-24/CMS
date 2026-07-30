@@ -52,6 +52,7 @@ variables:
   imageTag: '$(Build.BuildId)'
   s3BucketName: 'aar-tempbucket'
   s3KeyPrefix: 'CMS'
+  awsRoleArn: 'arn:aws:iam::298374040157:role/azure-devops-oidc-role'
 
 stages:
 
@@ -133,20 +134,24 @@ stages:
           #     globExpressions: 'CMS_deploy.zip'
           #     targetFolder: '$(s3KeyPrefix)'
 
-          - script: |
-              set -euo pipefail
-              echo "Building Docker image for ECR..."
-              test -f Dockerfile || { echo "Dockerfile not found at the repository root."; exit 1; }
-
-              #aws ecr describe-repositories --repository-names "$(ecrRepository)" --region "$(awsRegion)" >/dev/null 2>&1 || \
-              #aws ecr create-repository --repository-name "$(ecrRepository)" --region "$(awsRegion)" >/dev/null
-
-              aws ecr get-login-password --region "$(awsRegion)" | docker login --username AWS --password-stdin "$(ecrRegistry)"
-              docker build -t "$(ecrRegistry)/$(ecrRepository):$(imageTag)" .
-              docker push "$(ecrRegistry)/$(ecrRepository):$(imageTag)"
+          - task: AWSShellScript@1
             displayName: 'Build and push Docker image to ECR'
-            env:
-              AWS_DEFAULT_REGION: '$(awsRegion)'
+            inputs:
+              awsCredentials: '$(awsServiceConnection)'
+              regionName: '$(awsRegion)'
+              scriptType: 'inline'
+              inlineScript: |
+                set -euo pipefail
+                echo "Building Docker image for ECR..."
+                test -f Dockerfile || { echo "Dockerfile not found at the repository root."; exit 1; }
+
+                #aws sts get-caller-identity
+                #aws ecr describe-repositories --repository-names "$(ecrRepository)" --region "$(awsRegion)" >/dev/null 2>&1 || \
+                #aws ecr create-repository --repository-name "$(ecrRepository)" --region "$(awsRegion)" >/dev/null
+
+                aws ecr get-login-password --region "$(awsRegion)" | docker login --username AWS --password-stdin "$(ecrRegistry)"
+                docker build -t "$(ecrRegistry)/$(ecrRepository):$(imageTag)" .
+                docker push "$(ecrRegistry)/$(ecrRepository):$(imageTag)"
 
   # - stage: DeployToBeanstalk
   #   displayName: 'Deploy to Elastic Beanstalk'
