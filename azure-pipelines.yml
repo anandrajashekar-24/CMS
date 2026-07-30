@@ -151,7 +151,7 @@ stages:
 
                 aws ecr get-login-password --region "$(awsRegion)" | docker login --username AWS --password-stdin "$(ecrRegistry)"
                 docker build -t "$(ecrRegistry)/$(ecrRepository):$(imageTag)" .
-                docker push "$(ecrRegistry)/$(ecrRepository):$(imageTag)"
+                docker push "$(ecrRegistry)/$(ecrRepository):CMS:$(imageTag)"
 
   # - stage: DeployToBeanstalk
   #   displayName: 'Deploy to Elastic Beanstalk'
