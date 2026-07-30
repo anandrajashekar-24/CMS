@@ -49,7 +49,7 @@ variables:
   awsRegion: 'us-east-1'
   ecrRegistry: '298374040157.dkr.ecr.us-east-1.amazonaws.com'
   ecrRepository: 'myrepos'
-  imageTag: 'CMS-$(Build.BuildId)'
+  imageTag: 'cms-$(Build.BuildId)'
   s3BucketName: 'aar-tempbucket'
   s3KeyPrefix: 'CMS'
   awsRoleArn: 'arn:aws:iam::298374040157:role/azure-devops-oidc-role'
