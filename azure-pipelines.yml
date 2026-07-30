@@ -47,6 +47,9 @@ variables:
   sshKeySecureFile: 'CMS-deploy-key.pem'
   awsServiceConnection: 'aws-oidc-connection'
   awsRegion: 'us-east-1'
+  ecrRegistry: '298374040157.dkr.ecr.us-east-1.amazonaws.com'
+  ecrRepository: 'myrepos'
+  imageTag: '$(Build.BuildId)'
   s3BucketName: 'aar-tempbucket'
   s3KeyPrefix: 'CMS'
 
@@ -120,42 +123,54 @@ stages:
             displayName: 'Publish build artifact'
             artifact: cms-publish
 
-          - task: S3Upload@1
-            displayName: 'Upload zip to S3'
-            inputs:
-              awsCredentials: '$(awsServiceConnection)'
-              regionName: '$(awsRegion)'
-              bucketName: '$(s3BucketName)'
-              sourceFolder: '$(Build.ArtifactStagingDirectory)'
-              globExpressions: 'CMS_deploy.zip'
-              targetFolder: '$(s3KeyPrefix)'
+          # - task: S3Upload@1
+          #   displayName: 'Upload zip to S3'
+          #   inputs:
+          #     awsCredentials: '$(awsServiceConnection)'
+          #     regionName: '$(awsRegion)'
+          #     bucketName: '$(s3BucketName)'
+          #     sourceFolder: '$(Build.ArtifactStagingDirectory)'
+          #     globExpressions: 'CMS_deploy.zip'
+          #     targetFolder: '$(s3KeyPrefix)'
 
-          - script: sleep 5
-            displayName: 'Sleep 5s to allow S3 eventual consistency'
+          - script: |
+              set -euo pipefail
+              echo "Building Docker image for ECR..."
+              test -f Dockerfile || { echo "Dockerfile not found at the repository root."; exit 1; }
 
-  - stage: DeployToBeanstalk
-    displayName: 'Deploy to Elastic Beanstalk'
-    dependsOn: Build
-    condition: succeeded()
-    jobs:
-      - deployment: DeployToBeanstalk
-        displayName: 'Deploy application version'
-        environment: 'production'
-        strategy:
-          runOnce:
-            deploy:
-              steps:
-                - download: current
-                  artifact: cms-publish
-                  displayName: 'Download build artifact'
+              #aws ecr describe-repositories --repository-names "$(ecrRepository)" --region "$(awsRegion)" >/dev/null 2>&1 || \
+              #aws ecr create-repository --repository-name "$(ecrRepository)" --region "$(awsRegion)" >/dev/null
 
-                - task: BeanstalkDeployApplication@1
-                  displayName: 'Update Elastic Beanstalk application version'
-                  inputs:
-                    awsCredentials: '$(awsServiceConnection)'
-                    regionName: '$(awsRegion)'
-                    applicationName: 'CMS-1'
-                    environmentName: 'CMS-2-env'
-                    applicationType: 's3'
-                    deploymentBundleBucket: '$(s3BucketName)'
-                    deploymentBundleKey: '$(s3KeyPrefix)/CMS_deploy.zip'
+              aws ecr get-login-password --region "$(awsRegion)" | docker login --username AWS --password-stdin "$(ecrRegistry)"
+              docker build -t "$(ecrRegistry)/$(ecrRepository):$(imageTag)" .
+              docker push "$(ecrRegistry)/$(ecrRepository):$(imageTag)"
+            displayName: 'Build and push Docker image to ECR'
+            env:
+              AWS_DEFAULT_REGION: '$(awsRegion)'
+
+  # - stage: DeployToBeanstalk
+  #   displayName: 'Deploy to Elastic Beanstalk'
+  #   dependsOn: Build
+  #   condition: succeeded()
+  #   jobs:
+  #     - deployment: DeployToBeanstalk
+  #       displayName: 'Deploy application version'
+  #       environment: 'production'
+  #       strategy:
+  #         runOnce:
+  #           deploy:
+  #             steps:
+  #               - download: current
+  #                 artifact: cms-publish
+  #                 displayName: 'Download build artifact'
+
+  #               - task: BeanstalkDeployApplication@1
+  #                 displayName: 'Update Elastic Beanstalk application version'
+  #                 inputs:
+  #                   awsCredentials: '$(awsServiceConnection)'
+  #                   regionName: '$(awsRegion)'
+  #                   applicationName: 'CMS-1'
+  #                   environmentName: 'CMS-2-env'
+  #                   applicationType: 's3'
+  #                   deploymentBundleBucket: '$(s3BucketName)'
+  #                   deploymentBundleKey: '$(s3KeyPrefix)/CMS_deploy.zip'
